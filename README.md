@@ -28,7 +28,33 @@ var flowStream = flowFactory();
 The factory has the following methods...
 
 
-#### flowStream.stream()
+#### flow.delimiter( [value] )
+
+This method is a setter/getter. If no `delimiter` is provided, returns the `delimiter` used when delineating streamed data. To set the data `delimiter`,
+
+``` javascript
+// String:
+flow.delimiter( ' | ' );
+
+// Regular expression:
+flow.delimiter( /\r?\n/ );
+```
+
+The default `delimiter` is a line feed: `/\r?\n/`.
+
+
+#### flow.unmarshal( [format] )
+
+This method is a setter/getter. If no `format` is provided, returns the unmarshal `format`. To set the `format`,
+
+``` javascript
+flow.unmarshal( 'number' );
+```
+
+Available formats include: `json`, `number`, `string`, and `boolean`. The default unmarshal format is `json`.
+
+
+#### flow.stream()
 
 To create a new stream,
 
@@ -37,31 +63,55 @@ var stream = flowStream.stream();
 ```
 
 
+## Notes
+
+When used as setters, all setter/getter methods are chainable. For example,
+
+``` javascript
+var flowFactory = require( 'flow-tcp-unmarshal' );
+
+var stream = flowFactory()
+	.delimiter( ' | ' )
+	.unmarshal( 'number' )
+	.stream();
+```
+
+
 ## Examples
 
 ``` javascript
 var eventStream = require( 'event-stream' ),
+	streamBuffers = require( 'stream-buffers' ),
 	flowFactory = require( 'flow-tcp-unmarshal' );
 
-// Create some data...
-var data = new Array( 1000 );
-for ( var i = 0; i < data.length; i++ ) {
-	data[ i ] = Math.random();
-}
+// Create a readable buffer stream:
+var source = new streamBuffers.ReadableStreamBuffer({
+	'frequency': 0 // ms; pipe data immediately
+});
 
-// Create a readable stream:
-var readStream = eventStream.readArray( data );
+// Create a stream to unmarshal data:
+var unmarshal = flowFactory()
+	.delimiter( ' | ' )
+	.unmarshal( 'number' )
+	.stream();
 
-// Create a new stream:
-var stream = flowFactory().stream();
-
-// Pipe the data:
-readStream
-	.pipe( stream )
+// Create the pipeline:
+source
+	.pipe( unmarshal )
 	.pipe( eventStream.map( function( d, clbk ){
 		clbk( null, d.toString()+'\n' );
 	}))
 	.pipe( process.stdout );
+
+// Write some data...
+var data;
+for ( var i = 0; i < 20; i++ ) {
+	data = Math.random().toString();
+	if ( i < 20-1 ) {
+		data += ' | ';
+	}
+	source.put( data, 'utf8' );
+}
 ```
 
 To run the example code from the top-level application directory,
